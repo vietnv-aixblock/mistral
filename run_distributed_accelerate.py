@@ -94,6 +94,7 @@ logger.info(f"Using device: {device}")
 tokenizer = AutoTokenizer.from_pretrained(
     model_name, add_eos_token=True, use_fast=True, trust_remote_code=True
 )
+tokenizer.pad_token = tokenizer.eos_token
 EOS_TOKEN = tokenizer.eos_token  # Must add EOS_TOKEN
 alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 

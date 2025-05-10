@@ -1,24 +1,27 @@
+import argparse
 import os
+
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
-import argparse
+
 # from safetensors.torch import load_model
 
-parser = argparse.ArgumentParser(description='AIxBlock')
-parser.add_argument('--backend', type=str, default="nccl", help="JSON string for backend")
-parser.add_argument('--hf_model_id', type=str, default=None, help="hf_model_id")
-parser.add_argument('--world_size', type=int, default=1, help="world_size")
-parser.add_argument('--master_addr', type=str, default=1, help="master_addr")
-parser.add_argument('--master_port', type=str, default=1, help="master_port")
-parser.add_argument('--rank', type=str, default=1, help="rank")
+parser = argparse.ArgumentParser(description="AIxBlock")
+parser.add_argument(
+    "--backend", type=str, default="nccl", help="JSON string for backend"
+)
+parser.add_argument("--hf_model_id", type=str, default=None, help="hf_model_id")
+parser.add_argument("--world_size", type=int, default=1, help="world_size")
+parser.add_argument("--master_addr", type=str, default=1, help="master_addr")
+parser.add_argument("--master_port", type=str, default=1, help="master_port")
+parser.add_argument("--rank", type=str, default=1, help="rank")
 
-parser.add_argument('--prompt', type=str, default=None, help="dataset id")
-parser.add_argument('--text', type=str, default=None, help="channel_log")
-parser.add_argument('--hf_token', type=str, default=None, help="hf_token")
-parser.add_argument('--max_new_tokens', type=int, default=1024, help="world_size")
+parser.add_argument("--prompt", type=str, default=None, help="dataset id")
+parser.add_argument("--text", type=str, default=None, help="channel_log")
+parser.add_argument("--hf_token", type=str, default=None, help="hf_token")
+parser.add_argument("--max_new_tokens", type=int, default=1024, help="world_size")
 
 # Phân tích các tham số dòng lệnh
 args = parser.parse_args()
@@ -41,13 +44,12 @@ import argparse
 
 import evaluate
 import torch
+from accelerate import Accelerator, DistributedType
 from datasets import load_dataset
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup, set_seed
-
-from accelerate import Accelerator, DistributedType
-
+from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
+                          get_linear_schedule_with_warmup, set_seed)
 
 ########################################################################
 # This is a fully working simple example to use Accelerate
@@ -86,7 +88,12 @@ def get_dataloaders(accelerator: Accelerator, batch_size: int = 16):
 
     def tokenize_function(examples):
         # max_length=None => use the model max length (it's actually the default)
-        outputs = tokenizer(examples["sentence1"], examples["sentence2"], truncation=True, max_length=None)
+        outputs = tokenizer(
+            examples["sentence1"],
+            examples["sentence2"],
+            truncation=True,
+            max_length=None,
+        )
         return outputs
 
     # Apply the method we just defined to all the examples in all the splits of the dataset
@@ -104,7 +111,9 @@ def get_dataloaders(accelerator: Accelerator, batch_size: int = 16):
 
     def collate_fn(examples):
         # For Torchxla, it's best to pad everything to the same length or training will be very slow.
-        max_length = 128 if accelerator.distributed_type == DistributedType.XLA else None
+        max_length = (
+            128 if accelerator.distributed_type == DistributedType.XLA else None
+        )
         # When using mixed precision we want round multiples of 8/16
         if accelerator.mixed_precision == "fp8":
             pad_to_multiple_of = 16
@@ -123,7 +132,11 @@ def get_dataloaders(accelerator: Accelerator, batch_size: int = 16):
 
     # Instantiate dataloaders.
     train_dataloader = DataLoader(
-        tokenized_datasets["train"], shuffle=True, collate_fn=collate_fn, batch_size=batch_size, drop_last=True
+        tokenized_datasets["train"],
+        shuffle=True,
+        collate_fn=collate_fn,
+        batch_size=batch_size,
+        drop_last=True,
     )
     eval_dataloader = DataLoader(
         tokenized_datasets["validation"],
@@ -149,14 +162,19 @@ def training_function(config, args):
 
     # If the batch size is too big we use gradient accumulation
     gradient_accumulation_steps = 1
-    if batch_size > MAX_GPU_BATCH_SIZE and accelerator.distributed_type != DistributedType.XLA:
+    if (
+        batch_size > MAX_GPU_BATCH_SIZE
+        and accelerator.distributed_type != DistributedType.XLA
+    ):
         gradient_accumulation_steps = batch_size // MAX_GPU_BATCH_SIZE
         batch_size = MAX_GPU_BATCH_SIZE
 
     set_seed(seed)
     train_dataloader, eval_dataloader = get_dataloaders(accelerator, batch_size)
     # Instantiate the model (we build the model here so that the seed also control new weights initialization)
-    model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", return_dict=True)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        "bert-base-cased", return_dict=True
+    )
 
     # We could avoid this line since the accelerator is set with `device_placement=True` (default value).
     # Note that if you are placing tensors on devices manually, this line absolutely needs to be before the optimizer
@@ -169,15 +187,18 @@ def training_function(config, args):
     lr_scheduler = get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=100,
-        num_training_steps=(len(train_dataloader) * num_epochs) // gradient_accumulation_steps,
+        num_training_steps=(len(train_dataloader) * num_epochs)
+        // gradient_accumulation_steps,
     )
 
     # Prepare everything
     # There is no specific order to remember, we just need to unpack the objects in the same order we gave them to the
     # prepare method.
 
-    model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+    model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = (
+        accelerator.prepare(
+            model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+        )
     )
 
     # Now we train the model
@@ -202,7 +223,9 @@ def training_function(config, args):
             with torch.no_grad():
                 outputs = model(**batch)
             predictions = outputs.logits.argmax(dim=-1)
-            predictions, references = accelerator.gather_for_metrics((predictions, batch["labels"]))
+            predictions, references = accelerator.gather_for_metrics(
+                (predictions, batch["labels"])
+            )
             metric.add_batch(
                 predictions=predictions,
                 references=references,
@@ -212,7 +235,6 @@ def training_function(config, args):
         # Use accelerator.print to print only on the main process.
         accelerator.print(f"epoch {epoch}:", eval_metric)
     accelerator.end_training()
-
 
 
 parser = argparse.ArgumentParser(description="Simple example of training script.")
@@ -225,7 +247,9 @@ parser.add_argument(
     "between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >= 1.10."
     "and an Nvidia Ampere GPU.",
 )
-parser.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
+parser.add_argument(
+    "--cpu", action="store_true", help="If passed, will train on the CPU."
+)
 args = parser.parse_args()
 config = {"lr": 2e-5, "num_epochs": 3, "seed": 42, "batch_size": 16}
 training_function(config, args)

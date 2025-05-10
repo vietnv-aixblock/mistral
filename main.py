@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from mcp.server.sse import SseServerTransport
@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from starlette.routing import Mount
 
 from model import MyModel, mcp
+
+# ------------------------------------------------------------------
 
 
 # Models for request validation

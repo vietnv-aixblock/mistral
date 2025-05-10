@@ -1,12 +1,17 @@
-import random
-from typing import List, Dict, Optional
-from aixblock_ml.model import AIxBlockMLBase
-# from ultralytics import YOLO
-from transformers import pipeline,BloomForCausalLM,BloomTokenizerFast
 import os
- 
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from prompt import qa_with_context, text_classification, text_summarization, qa_without_context
+import random
+from typing import Dict, List, Optional
+
+import torch
+from aixblock_ml.model import AIxBlockMLBase
+from huggingface_hub import HfFolder
+# from ultralytics import YOLO
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BloomForCausalLM, BloomTokenizerFast, pipeline)
+
+from prompt import (qa_with_context, qa_without_context, text_classification,
+                    text_summarization)
+
 # device = "cuda" # the device to load the model onto
 
 # model = AutoModelForCausalLM.from_pretrained("djuna/Qwen2-2B-Instruct", device_map="auto")
@@ -26,8 +31,6 @@ from prompt import qa_with_context, text_classification, text_summarization, qa_
 
 # response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
-from huggingface_hub import HfFolder
-import torch
 
 # Đặt token của bạn vào đây
 hf_token = os.getenv("HF_TOKEN", "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")
@@ -154,7 +157,7 @@ class MyModel(AIxBlockMLBase):
                 remove_unused_columns =kwargs.get("remove_unused_columns", False)
                 max_seq_length = kwargs.get("max_seq_length", 1024)
                
-            # try:
+            y:
                 import threading
                 clone_dir = os.path.join(os.getcwd())
                 # epochs = kwargs.get("num_epochs", 10)
@@ -172,18 +175,19 @@ class MyModel(AIxBlockMLBase):
                 # entry_file = kwargs.get("entry_file")
                 configs = kwargs.get("configs")
                 def func_train_model(clone_dir, project_id, epochs, token, checkpoint_version, checkpoint_id, dataset_version, dataset_id,model_id,learning_rate,per_device_train_batch_size,use_cpu,bf16,fp16,push_to_hub,task,hf_model_id,num_train_epochs):
-                    import torch
-                    from peft import AutoPeftModelForCausalLM
-                    from transformers import AutoTokenizer, pipeline
-                    from datasets import load_dataset
-                    from random import randint
-                    from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments #BitsAndBytesConfig,AutoConfig,
-                    from trl import SFTTrainer 
                     import pathlib
-                    from transformers import TrainerCallback
+                    from random import randint
+
                     import numpy as np
+                    import torch
+                    from datasets import load_dataset
+                    from peft import AutoPeftModelForCausalLM
                     from torch.utils.data.dataloader import DataLoader
-                    from transformers import DataCollatorWithPadding
+                    from transformers import (  # BitsAndBytesConfig,AutoConfig,
+                        AutoModelForCausalLM, AutoTokenizer,
+                        DataCollatorWithPadding, TrainerCallback,
+                        TrainingArguments, pipeline)
+                    from trl import SFTTrainer
 
                     # Hugging Face model id
                     if model_id == None:
@@ -408,6 +412,7 @@ class MyModel(AIxBlockMLBase):
 
                 if len(voice)>0:
                     import base64
+
                     import requests
                     import torchaudio
                    

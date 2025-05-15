@@ -171,13 +171,15 @@ class MyModel(AIxBlockMLBase):
 
         elif command.lower() == "train":
 
-            model_id = kwargs.get("model_id", "Mistral-7B-Instruct-v0.2")
+            model_id = kwargs.get("model_id", "mistralai/Mistral-7B-Instruct-v0.2")
             dataset_id = kwargs.get(
                 "dataset_id", "autoprogrammer/Qwen2.5-Coder-7B-Instruct-codeguardplus"
             )
 
             push_to_hub = kwargs.get("push_to_hub", True)
-            hf_model_id = kwargs.get("hf_model_id", "Mistral-7B-Instruct-v0.2")
+            hf_model_id = kwargs.get(
+                "hf_model_id", "mistralai/Mistral-7B-Instruct-v0.2"
+            )
             push_to_hub_token = kwargs.get(
                 "push_to_hub_token", "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"
             )
@@ -587,7 +589,7 @@ class MyModel(AIxBlockMLBase):
 
         elif command.lower() == "predict":
             prompt = kwargs.get("prompt", None)
-            model_id = kwargs.get("model_id", "Mistral-7B-Instruct-v0.2")
+            model_id = kwargs.get("model_id", "mistralai/Mistral-7B-Instruct-v0.2")
             text = kwargs.get("text", None)
             token_length = kwargs.get("token_lenght", 30)
             task = kwargs.get("task", "")
@@ -764,7 +766,7 @@ class MyModel(AIxBlockMLBase):
         """
         global model_demo, tokenizer_demo, model_loaded_demo, model_id_demo
 
-        model_id_demo = kwargs.get("model_id", "Mistral-7B-Instruct-v0.2")
+        model_id_demo = kwargs.get("model_id", "mistralai/Mistral-7B-Instruct-v0.2")
         project_id = kwargs.get("project_id", 0)
 
         print(

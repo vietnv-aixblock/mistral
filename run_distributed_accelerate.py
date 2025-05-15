@@ -1,4 +1,5 @@
 import argparse
+from ast import arg
 import json
 import os
 
@@ -46,18 +47,23 @@ parser.add_argument(
     help="Name of the dataset to use",
 )
 parser.add_argument(
-    "--prompt_field",
+    "--instruction_field",
     type=str,
     default="prompt",
     help="Field name for prompts in the dataset",
 )
 parser.add_argument(
-    "--text_field",
+    "--input_field",
+    type=str,
+    default="task_description",
+    help="Field name for text in the dataset",
+)
+parser.add_argument(
+    "--output_field",
     type=str,
     default="response",
     help="Field name for text in the dataset",
 )
-
 args = parser.parse_args()
 log_queue, logging_thread = start_queue(args.channel_log)
 write_log(log_queue)
@@ -94,43 +100,29 @@ logger.info(f"Using device: {device}")
 tokenizer = AutoTokenizer.from_pretrained(
     model_name, add_eos_token=True, use_fast=True, trust_remote_code=True
 )
-tokenizer.pad_token = tokenizer.eos_token
 EOS_TOKEN = tokenizer.eos_token  # Must add EOS_TOKEN
 alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
-                ### Prompt:
-                {}
+                    ### Instruction:
+                    {}
 
-                ### Response:
-                {}"""
+                    ### Input:
+                    {}
+
+                    ### Response:
+                    {}"""
 
 
 def formatting_prompts_func(examples):
-    prompt = examples.get(args.prompt_field)
-    response = examples.get(args.text_field)
-    texts = []
-    for input, output in zip(prompt, response):
-        text = alpaca_prompt.format(input, output) + EOS_TOKEN
-        texts.append(text)
-    return tokenizer(
-        texts,
-        truncation=True,
-        padding=True,
-        max_length=128,
-        return_tensors="pt",
-    )
-
-
-def tokenizer_func(examples):
-    instructions = examples["instruction"]
-    inputs = examples["input"]
-    outputs = examples["output"]
+    instructions = examples.get(args.instruction_field)
+    inputs = examples.get(args.input_field)
+    outputs = examples.get(args.output_field)
     texts = []
     for instruction, input, output in zip(instructions, inputs, outputs):
         text = alpaca_prompt.format(instruction, input, output) + EOS_TOKEN
         texts.append(text)
     return tokenizer(
-        "".join(texts),
+        texts,
         truncation=True,
         padding=True,
         max_length=128,
@@ -164,9 +156,10 @@ def formatting_func(example):
 
 if not is_use_local:
     dataset = load_dataset(dataset_id)
+    # Truy cập từng tập dữ liệu
     train_test_split = dataset["train"].train_test_split(
         test_size=per_test_dataset, seed=42
-    )
+    )  # 20% cho eval
     train_dataset = train_test_split["train"]
     eval_dataset = train_test_split["test"]
 
@@ -181,6 +174,7 @@ if not is_use_local:
     }
 
 else:
+    # Load dataset từ thư mục local
     dataset = load_dataset(
         "json",
         data_files={
@@ -189,6 +183,7 @@ else:
         },
     )
 
+    # Truy cập từng tập dữ liệu
     train_dataset = dataset["train"]
     eval_dataset = dataset["test"]
 
@@ -249,7 +244,7 @@ training_arguments = TrainingArguments(
     warmup_ratio=0.1,
     lr_scheduler_type="linear",
     remove_unused_columns=False,
-    report_to="tensorboard",
+    report_to="tensorboard",  # azure_ml, comet_ml, mlflow, neptune, tensorboard, wandb, codecarbon, clearml, dagshub, flyte, dvclive
     push_to_hub=push_to_hub,
     push_to_hub_token=push_to_hub_token,
     no_cuda=False,
@@ -261,7 +256,15 @@ trainer = SFTTrainer(
     train_dataset=train_dataset,
     eval_dataset=eval_dataset,
     peft_config=peft_config,
+    # data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer),
+    # max_seq_length=512,
+    # tokenizer=tokenizer,
     args=training_arguments,
+    # dataset_kwargs={
+    #                 "add_special_tokens": False,  # We template with special tokens
+    #                 "append_concat_token": False, # No need to add additional separator token
+    #                 'skip_prepare_dataset': True # skip the dataset preparation
+    #             },
 )
 
 try:
